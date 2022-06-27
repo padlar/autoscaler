@@ -72,6 +72,30 @@ func TestGetUpdatePriority(t *testing.T) {
 				ScaleUp:                 true,
 			},
 		}, {
+			name: "scale up on milliquanitites 2",
+			pod:  test.Pod().WithName("POD1").AddContainer(test.BuildTestContainer(containerName, "500m", "")).Get(),
+			vpa: test.VerticalPodAutoscaler().WithContainer(containerName).
+				WithTarget("410m", "").
+				WithLowerBound("322m", "").
+				WithUpperBound("558m", "").Get(),
+			expectedPrio: PodPriority{
+				OutsideRecommendedRange: false,
+				ResourceDiff:            0.18, // 500-410/500
+				ScaleUp:                 false,
+			},
+		}, {
+			name: "scale up on milliquanitites 3 - restarted because requested range is outside recommended",
+			pod:  test.Pod().WithName("POD1").AddContainer(test.BuildTestContainer(containerName, "500m", "")).Get(),
+			vpa: test.VerticalPodAutoscaler().WithContainer(containerName).
+				WithTarget("224m", "").
+				WithLowerBound("181m", "").
+				WithUpperBound("306m", "").Get(),
+			expectedPrio: PodPriority{
+				OutsideRecommendedRange: true,
+				ResourceDiff:            0.552, // 500-224/500
+				ScaleUp:                 false,
+			},
+		}, {
 			name: "scale up outside recommended range",
 			pod:  test.Pod().WithName("POD1").AddContainer(test.BuildTestContainer(containerName, "4", "")).Get(),
 			vpa: test.VerticalPodAutoscaler().WithContainer(containerName).

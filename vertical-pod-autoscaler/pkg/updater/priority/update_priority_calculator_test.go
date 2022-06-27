@@ -190,6 +190,33 @@ func TestUpdateLonglivedPods2(t *testing.T) {
 	assert.Exactly(t, []*apiv1.Pod{pods[0]}, result, "Exactly POD1 should be updated")
 }
 
+func TestUpdateLonglivedPods3(t *testing.T) {
+	pods := []*apiv1.Pod{
+		test.Pod().WithName("POD1").AddContainer(test.BuildTestContainer(containerName, "500m", "")).Get(),
+	}
+
+	// Both pods are within the recommended range.
+	vpa := test.VerticalPodAutoscaler().WithContainer(containerName).
+		WithTarget("224m", "").
+		WithLowerBound("181m", "").
+		WithUpperBound("306m", "").Get()
+
+	priorityProcessor := NewFakeProcessor(map[string]PodPriority{
+		"POD1": {OutsideRecommendedRange: false, ScaleUp: false, ResourceDiff: 0.55},
+	})
+
+	calculator := NewUpdatePriorityCalculator(
+		vpa, &UpdateConfig{MinChangePriority: 0.1}, &test.FakeRecommendationProcessor{}, priorityProcessor)
+
+	// Pretend that the test pods started 13 hours ago.
+	timestampNow := pods[0].Status.StartTime.Time.Add(time.Hour * 13)
+	for i := 0; i < 1; i++ {
+		calculator.AddPod(pods[i], timestampNow)
+	}
+	result := calculator.GetSortedPods(NewDefaultPodEvictionAdmission())
+	assert.Exactly(t, []*apiv1.Pod{pods[0]}, result, "Exactly POD1 should be updated")
+}
+
 // Verify that a pod that lives for less than podLifetimeUpdateThreshold is
 // updated only if the request is outside the [MinRecommended...MaxRecommended]
 // range for at least one container.
